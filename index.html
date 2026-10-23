@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlavorMap - Карта Вкусов Города</title>
+    
+    <!-- Подключаем Leaflet CSS (для карты) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --sidebar-width: 350px;
+            --accent-orange: #ff9800;
+            --accent-pink: #e91e63;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Сайдбар */
+        #sidebar {
+            width: var(--sidebar-width);
+            background-color: #1e1e1e;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #333;
+            overflow-y: auto;
+        }
+
+        .brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 10px;
+        }
+        .brand span {
+            color: var(--accent-orange);
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 30px;
+        }
+
+        .filter-group {
+            margin-bottom: 25px;
+        }
+
+        .filter-label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: block;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .filter-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .tag {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .tag.active {
+            background-color: var(--accent-orange);
+        }
+
+        .location-card {
+            background-color: #252525;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.2s, border-color 0.3s;
+        }
+
+        .location-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent-pink);
+        }
+
+        .location-card img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .location-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: white;
+            margin-bottom: 5px;
+        }
+
+        .location-meta {
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        /* Карта */
+        #map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div class="brand">Flavor<span>Map</span> 🍕</div>
+        <div class="subtitle">Карта вкусов и эстетичной еды</div>
+
+        <div class="filter-group">
+            <span class="filter-label">Фильтры по вкусу</span>
+            <div class="filter-tags">
+                <button class="tag active">Все</button>
+                <button class="tag">Умами</button>
+                <button class="tag">Сладкое</button>
+                <button class="tag">Острое</button>
+                <button class="tag">Кофе</button>
+            </div>
+        </div>
+
+        <div class="filter-group">
+            <span class="filter-label">Ближайшие места</span>
+            <div id="location-list">
+                <!-- Карточки мест будут добавлены здесь через JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
+
+    <!-- Подключаем Leaflet JavaScript (для карты) -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <script>
+        // Данные о заведениях (Пример)
+        const locations = [
+            {
+                id: 1,
+                name: 'Umami Ramen Bar',
+                tags: ['Умами', 'Азия'],
+                rating: 4.8,
+                lat: 55.7512, // Пример координат для Москвы
+                lng: 37.6184,
+                // ЗАМЕНИТЕ ЭТУ ССЫЛКУ НА РЕАЛЬНОЕ ИЗОБРАЖЕНИЕ
+                image: 'https://via.placeholder.com/350x150.png?text=Ramen+Image+Placeholder'
+            },
+            {
+                id: 2,
+                name: 'Sweet Bakery',
+                tags: ['Сладкое', 'Десерты'],
+                rating: 4.9,
+                lat: 55.7550,
+                lng: 37.6250,
+                // ЗАМЕНИТЕ ЭТУ ССЫЛКУ НА РЕАЛЬНОЕ ИЗОБРАЖЕНИЕ
+                image: 'https://via.placeholder.com/350x150.png?text=Bakery+Image+Placeholder'
+            }
+        ];
+
+        // 1. Инициализация карты (Leaflet)
+        // Координаты [55.7558, 37.6173] - это центр Москвы
+        const map = L.map('map').setView([55.7558, 37.6173], 13);
+
+        // 2. Добавление слоя карты (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // 3. Функция для отображения карточек в сайдбаре
+        function renderLocations(data) {
+            const listContainer = document.getElementById('location-list');
+            listContainer.innerHTML = '';
+
+            data.forEach(loc => {
+                const card = document.createElement('div');
+                card.className = 'location-card';
+                card.innerHTML = `
+                    <img src="${loc.image}" alt="${loc.name}">
+                    <div class="location-name">${loc.name}</div>
+                    <div class="location-meta">${loc.tags.join(', ')} • Рейтинг ${loc.rating}</div>
+                `;
+                // Добавляем маркер на карту при клике на карточку
+                card.addEventListener('click', () => {
+                    map.flyTo([loc.lat, loc.lng], 15);
+                    L.marker([loc.lat, loc.lng]).addTo(map)
+                        .bindPopup(`<b>${loc.name}</b><br>${loc.tags.join(', ')}`)
+                        .openPopup();
+                });
+                listContainer.appendChild(card);
+
+                // Добавляем маркер на карту для каждого места
+                L.marker([loc.lat, loc.lng]).addTo(map)
+                    .bindPopup(`<b>${loc.name}</b><br>${loc.tags.join(', ')}`);
+            });
+        }
+
+        // 4. Первоначальный рендеринг
+        renderLocations(locations);
+    </script>
+</body>
+</html>
